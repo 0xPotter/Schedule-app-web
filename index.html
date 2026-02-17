@@ -318,6 +318,17 @@
   .cat-chip.sel { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
   .modal-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
 
+  /* Pairing modal */
+  .pair-code-input { width: 100%; padding: 0.75rem 1rem; background: var(--surface2); border: 2px solid var(--border); border-radius: 12px; color: var(--accent); font-family: 'Courier New', monospace; font-size: 1.3rem; font-weight: 700; text-align: center; letter-spacing: 0.15em; outline: none; transition: border-color 0.2s; }
+  .pair-code-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .pair-code-input::placeholder { color: var(--text-muted); font-size: 0.85rem; letter-spacing: normal; font-weight: 400; font-family: inherit; }
+  .pair-info { font-size: 0.72rem; color: var(--text-soft); line-height: 1.6; margin-top: 0.5rem; }
+  .pair-info strong { color: var(--accent); }
+  .pair-current { font-size: 0.68rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem; }
+  .pair-current code { color: var(--accent); font-weight: 700; background: var(--surface2); padding: 0.15rem 0.5rem; border-radius: 4px; }
+  .pair-btn { position: absolute; right: 1.5rem; top: 0.7rem; background: none; border: none; cursor: pointer; font-size: 0.7rem; color: var(--text-muted); font-family: inherit; transition: color 0.2s; }
+  .pair-btn:hover { color: var(--accent); }
+
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   @media (max-width: 600px) {
@@ -340,6 +351,7 @@
     <button class="nav-tab" onclick="showView('archive')">Historial</button>
     <button class="nav-tab" onclick="showView('calendar')">Calendario</button>
   </div>
+  <button class="pair-btn" onclick="showPairModal()" title="Sincronización">🔗</button>
 </nav>
 
 <div class="container">
@@ -415,6 +427,22 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="pairModal">
+  <div class="modal">
+    <h3>🔗 Código de sincronización</h3>
+    <div class="pair-info">Usa el <strong>mismo código</strong> en todos tus dispositivos (iPhone, Mac, etc.) para que compartan los mismos datos.</div>
+    <div class="modal-field" style="margin-top:0.75rem;">
+      <label>Tu código personal</label>
+      <input class="pair-code-input" id="pairInput" placeholder="Ej: jeremy2026" maxlength="30" autocomplete="off" spellcheck="false" />
+    </div>
+    <div class="pair-current" id="pairCurrent"></div>
+    <div class="modal-actions">
+      <button class="btn btn-p" style="flex:1;" onclick="savePairCode()">Guardar y sincronizar</button>
+      <button class="btn btn-s" onclick="closePairModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="sync-bar" id="syncBar">
   <span class="sync-dot wait" id="syncDot"></span>
   <span id="syncText">Conectando...</span>
@@ -427,7 +455,7 @@
 
 <script>
 // ============================================================
-// FIREBASE CONFIG — REPLACE WITH YOUR VALUES (see GUIA.md)
+// FIREBASE CONFIG
 // ============================================================
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyD8RQ6EOpNSM8irWqo9yR9L0eyGbY_oND0",
@@ -443,23 +471,51 @@ let db = null;
 let userId = null;
 let unsubscribers = [];
 
+// ===== PAIRING CODE SYSTEM =====
+function getPairCode() { return localStorage.getItem('wp_pair_code') || ''; }
+function setPairCode(code) { localStorage.setItem('wp_pair_code', code.trim().toLowerCase()); }
+
+function showPairModal() {
+  const code = getPairCode();
+  document.getElementById('pairInput').value = code;
+  const cur = document.getElementById('pairCurrent');
+  cur.innerHTML = code ? 'Código actual: <code>' + code + '</code>' : 'Sin código — los datos solo se guardan localmente';
+  document.getElementById('pairModal').classList.add('show');
+  setTimeout(() => document.getElementById('pairInput').focus(), 100);
+}
+function closePairModal() { document.getElementById('pairModal').classList.remove('show'); }
+
+function savePairCode() {
+  const raw = document.getElementById('pairInput').value.trim();
+  if (!raw || raw.length < 3) { alert('Escribe un código de al menos 3 caracteres.'); return; }
+  const oldCode = getPairCode();
+  setPairCode(raw);
+  closePairModal();
+  // Restart sync with new code
+  unsubscribers.forEach(u => u());
+  unsubscribers = [];
+  userId = getPairCode();
+  syncStatus('wait', 'Conectando...');
+  startSync();
+}
+
 function initFirebase() {
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
     db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-    firebase.auth().signInAnonymously().then(cred => {
-      userId = cred.user.uid;
-      localStorage.setItem('wp_uid', userId);
-      syncStatus('synced', 'Sincronizado ✓');
-      startSync();
-    }).catch(err => {
-      console.warn('Firebase auth failed, using local mode', err);
-      syncStatus('offline', 'Modo local (sin sincronización)');
-    });
+    // Use pairing code as userId instead of anonymous auth
+    const pairCode = getPairCode();
+    if (!pairCode) {
+      syncStatus('offline', 'Toca 🔗 para sincronizar dispositivos');
+      return;
+    }
+    userId = pairCode;
+    syncStatus('synced', 'Sincronizado ✓ (' + pairCode + ')');
+    startSync();
   } catch (e) {
-    console.warn('Firebase not configured, using local mode');
-    syncStatus('offline', 'Modo local — configura Firebase para sincronizar');
+    console.warn('Firebase init error', e);
+    syncStatus('offline', 'Error de conexión — modo local');
   }
 }
 
@@ -479,59 +535,61 @@ function userDoc(collection) {
 function startSync() {
   if (!db || !userId) return;
 
-  // Sync current week
   unsubscribers.push(
     userDoc('data').doc('currentWeek').onSnapshot(snap => {
       if (snap.exists && snap.metadata.hasPendingWrites === false) {
         wd = snap.data();
+        localStorage.setItem('wp_cur', JSON.stringify(wd));
         renderPlan();
+        syncStatus('synced', 'Sincronizado ✓ (' + userId + ')');
       }
-    })
+    }, err => { console.warn('Week sync error', err); syncStatus('offline', 'Error de sincronización'); })
   );
 
-  // Sync archive
   unsubscribers.push(
     userDoc('data').doc('archive').onSnapshot(snap => {
       if (snap.exists && snap.metadata.hasPendingWrites === false) {
         localStorage.setItem('wp_arch', JSON.stringify(snap.data().entries || []));
         if (document.getElementById('archiveView').classList.contains('active')) renderArch();
       }
-    })
+    }, err => console.warn('Archive sync error', err))
   );
 
-  // Sync events
   unsubscribers.push(
     userDoc('data').doc('events').onSnapshot(snap => {
       if (snap.exists && snap.metadata.hasPendingWrites === false) {
         localStorage.setItem('wp_evts', JSON.stringify(snap.data().list || []));
         if (document.getElementById('calendarView').classList.contains('active')) renderCal();
       }
-    })
+    }, err => console.warn('Events sync error', err))
   );
 
-  // Push existing local data to cloud on first connect
   pushLocalToCloud();
 }
 
 async function pushLocalToCloud() {
   if (!db || !userId) return;
-  const remoteWeek = await userDoc('data').doc('currentWeek').get();
-  if (!remoteWeek.exists) {
-    userDoc('data').doc('currentWeek').set(wd);
-  } else {
-    wd = remoteWeek.data();
-    localStorage.setItem('wp_cur', JSON.stringify(wd));
-    renderPlan();
-  }
-
-  const remoteArch = await userDoc('data').doc('archive').get();
-  if (!remoteArch.exists) {
-    userDoc('data').doc('archive').set({ entries: ga() });
-  }
-
-  const remoteEvts = await userDoc('data').doc('events').get();
-  if (!remoteEvts.exists) {
-    userDoc('data').doc('events').set({ list: ge() });
+  try {
+    const remoteWeek = await userDoc('data').doc('currentWeek').get();
+    if (!remoteWeek.exists) {
+      await userDoc('data').doc('currentWeek').set(JSON.parse(JSON.stringify(wd)));
+    } else {
+      wd = remoteWeek.data();
+      localStorage.setItem('wp_cur', JSON.stringify(wd));
+      renderPlan();
+    }
+    const remoteArch = await userDoc('data').doc('archive').get();
+    if (!remoteArch.exists) {
+      await userDoc('data').doc('archive').set({ entries: ga() });
+    }
+    const remoteEvts = await userDoc('data').doc('events').get();
+    if (!remoteEvts.exists) {
+      await userDoc('data').doc('events').set({ list: ge() });
+    }
+    syncStatus('synced', 'Sincronizado ✓ (' + userId + ')');
+  } catch (e) {
+    console.warn('Push to cloud error', e);
+    syncStatus('offline', 'Error al sincronizar');
   }
 }
 
@@ -645,6 +703,7 @@ document.getElementById('weekObj').addEventListener('input',e=>{wd.objective=e.t
 document.getElementById('compSlider').addEventListener('input',function(){wd.competence=parseInt(this.value);document.getElementById('compVal').textContent=this.value+'%';document.getElementById('sFill').style.width=this.value+'%';sw(wd);});
 document.getElementById('weekJrn').addEventListener('input',e=>{wd.journal=e.target.value;sw(wd);});
 document.getElementById('evtModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+document.getElementById('pairModal').addEventListener('click',function(e){if(e.target===this)closePairModal();});
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
