@@ -1,4 +1,4 @@
-const CACHE_NAME = 'planificador-v1';
+const CACHE_NAME = 'planificador-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -29,8 +29,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   // Skip Firebase and external requests
   if (event.request.url.includes('firebaseio.com') ||
-      event.request.url.includes('googleapis.com') ||
-      event.request.url.includes('gstatic.com')) {
+    event.request.url.includes('googleapis.com') ||
+    event.request.url.includes('gstatic.com')) {
     return;
   }
 
