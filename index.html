@@ -140,12 +140,12 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 50px;
+      height: calc(50px + env(safe-area-inset-top));
+      padding: env(safe-area-inset-top) 1rem 0 1rem;
       background: transparent;
       transition: background-color 0.3s, border-bottom 0.3s;
       z-index: 100;
       align-items: center;
-      padding: 0 1rem;
     }
 
     .mobile-top-bar.scrolled {
@@ -2368,6 +2368,7 @@
         transform: translateX(0);
         width: 65%;
         min-width: 65%;
+        padding-top: calc(1.5rem + env(safe-area-inset-top));
       }
 
       .mobile-top-bar {
@@ -2567,7 +2568,7 @@
         <i class="ph-fill ph-list ph-icon"></i>
       </button>
     </div>
-    <div class="container" style="padding-top: 3.5rem;">
+    <div class="container" style="padding-top: calc(3.5rem + env(safe-area-inset-top));">
 
       <div id="plannerView" class="view active">
         <div class="header">
