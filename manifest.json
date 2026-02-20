@@ -1,6 +1,6 @@
 {
-  "name": "Mi Planificador",
-  "short_name": "Planificador",
+  "name": "Planora",
+  "short_name": "Planora",
   "description": "Planificador semanal con historial y calendario",
   "start_url": "/",
   "display": "standalone",
