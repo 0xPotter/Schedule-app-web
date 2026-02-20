@@ -1,7 +1,7 @@
 {
   "name": "Planora",
   "short_name": "Planora",
-  "description": "Planificador semanal con historial y calendario",
+  "description": "Diseña tu progreso",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0D0D0D",
