@@ -150,7 +150,7 @@
     }
 
     .top-header.scrolled {
-      background: rgba(13, 13, 13, 0.95);
+      background: rgba(13, 13, 13, 0.75);
       border-bottom: 1px solid var(--border);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -458,8 +458,11 @@
     }
 
     .header .sub {
-      font-size: 0.78rem;
+      font-size: 0.65rem;
       color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.2rem;
     }
 
     /* ===== CARDS ===== */
@@ -2025,6 +2028,9 @@
       letter-spacing: 0.05em;
       background: var(--surface2);
       border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .month-cell {
@@ -2562,9 +2568,9 @@
       </button>
     </div>
     <div class="sidebar-footer">
-      <button class="sidebar-item" onclick="showPairModal()">
-        <span class="sidebar-icon"><i class="ph-fill ph-link ph-icon"></i></span>
-        <span class="sidebar-label">Sincronizar</span>
+      <button class="sidebar-item" onclick="alert('Configuración próximamente.')">
+        <span class="sidebar-icon"><i class="ph-fill ph-gear ph-icon"></i></span>
+        <span class="sidebar-label">Ajustes</span>
       </button>
     </div>
   </aside>
@@ -2585,7 +2591,7 @@
         <h2 class="top-brand">Planora</h2>
       </div>
       <div class="top-header-right">
-        <button class="profile-btn" onclick="openProfile()">
+        <button class="profile-btn" onclick="showPairModal()" title="Sincronizar">
           <div class="profile-pic"></div>
         </button>
       </div>
@@ -2594,8 +2600,8 @@
 
       <div id="plannerView" class="view active">
         <div class="header">
-          <p class="sub" id="weekLabel"></p>
           <h1>Panel Semanal</h1>
+          <p class="sub" id="weekLabel"></p>
         </div>
         <div class="top-section">
           <div class="card card-accent">
@@ -2654,11 +2660,11 @@
         <div id="archContent"></div>
       </div>
 
-      <div id="detailView" class="view">
-        <div id="detailContent"></div>
-      </div>
-
       <div id="calendarView" class="view">
+        <div class="header">
+          <h1>Calendario</h1>
+          <p class="sub">Organiza tus eventos</p>
+        </div>
         <div class="cal-layout">
           <!-- Sidebar -->
           <div class="cal-sidebar">
@@ -2668,7 +2674,7 @@
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              + Nuevo evento
+              Nuevo evento
             </button>
 
             <div>
@@ -3021,10 +3027,6 @@
           sb.classList.toggle('collapsed');
           sp.classList.toggle('collapsed', sb.classList.contains('collapsed'));
         }
-      }
-
-      function openProfile() {
-        alert("Configuración de perfil próximamente.");
       }
       function weekRange() { const n = new Date(), s = new Date(n); s.setDate(n.getDate() - n.getDay()); const e = new Date(s); e.setDate(s.getDate() + 6); return { s, e }; }
       function weekLabel() { const { s, e } = weekRange(); const o = { day: 'numeric', month: 'short' }; return `Semana del ${s.toLocaleDateString('es', o)} al ${e.toLocaleDateString('es', o)}, ${e.getFullYear()}`; }
