@@ -2587,6 +2587,51 @@
 
     .days-toolbar {
       margin-bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .days-header-wrapper {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.8rem;
+      }
+
+      .days-toolbar {
+        width: 100%;
+        justify-content: space-between;
+        gap: 0;
+        margin-bottom: 1.2rem;
+      }
+
+      .days-toolbar .width-control {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .days-toolbar .days-toolbar-label,
+      .days-toolbar .width-val {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+      }
+
+      .days-toolbar input[type="range"] {
+        flex: 1;
+        width: 100%;
+      }
+
+      .days-toolbar .width-control:first-child {
+        margin-right: 0.8rem;
+      }
+
+      .days-toolbar .width-control:last-child {
+        margin-left: 0.8rem;
+      }
     }
 
     .task-badge {
@@ -2693,24 +2738,17 @@
     }
 
     .rs-open-btn {
-      position: fixed;
-      top: 1rem;
-      right: 1.5rem;
-      z-index: 1400;
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       transition: all 0.2s;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateX(20px);
     }
 
     .rs-open-btn:hover {
@@ -2720,9 +2758,7 @@
     }
 
     .rs-open-btn.show {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateX(0);
+      display: flex;
     }
 
     .rs-open-btn .ph-icon {
@@ -2829,11 +2865,19 @@
     <header class="top-header" id="topHeader">
       <div class="top-header-left">
         <button class="mobile-menu-btn" onclick="toggleSidebar()">
-          <i class="ph-fill ph-list ph-icon"></i>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
         </button>
         <h2 class="top-brand">Planora</h2>
       </div>
       <div class="top-header-right">
+        <button class="rs-open-btn" id="rsOpenBtn" onclick="toggleRightSidebar()" title="Mostrar recordatorios">
+          <i class="ph-fill ph-bell ph-icon"></i>
+        </button>
       </div>
     </header>
     <div class="container">
@@ -2860,16 +2904,73 @@
             <input type="text" id="profileName" class="ta ta-sm" style="width:100%; padding: 0.6rem; margin-top:0.3rem;"
               placeholder="Escribe tu nombre">
           </div>
-          <div>
-            <span class="label-soft">Código de Sincronización</span>
-            <input type="text" id="profileSyncCode" class="ta ta-sm"
-              style="width:100%; padding: 0.6rem; margin-top:0.3rem;" placeholder="Tu código privado de sincronización"
-              readonly>
-            <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 0.4rem;">Este código se genera
-              automáticamente y te permite sincronizar tus datos en otros dispositivos.</p>
+          <div style="display: none;">
+            <!-- Hidden old sync code fields to prevent JS errors -->
+            <input type="text" id="profileSyncCode" value="">
           </div>
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.5rem;">
             <button class="btn btn-p" onclick="saveProfile()">Guardar Cambios</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="settingsView" class="view">
+        <div class="header">
+          <h1><i class="ph-fill ph-gear ph-icon"></i> Ajustes</h1>
+          <p class="sub">Vincular nuevos dispositivos</p>
+        </div>
+        <div class="card" style="max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem">
+          <div>
+            <span class="label-soft">Cuenta en la Nube</span>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.3rem; margin-bottom: 0.8rem;">
+              Inicia sesión con Google para respaldar tus tareas y mantenerlas sincronizadas en todos tus dispositivos.
+            </p>
+
+            <div id="authLoggedOut">
+              <button class="btn btn-p" style="width: 100%; transition: all 0.2s;" onclick="signInWithGoogle()">
+                <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 8px; vertical-align: middle;">
+                  <path fill="#FFF"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#FFF"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FFF"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#FFF"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Iniciar sesión con Google
+              </button>
+            </div>
+
+            <div id="authLoggedIn"
+              style="display: none; align-items: center; justify-content: space-between; background: var(--surface2); padding: 0.8rem; border-radius: 8px;">
+              <div style="display: flex; align-items: center; gap: 0.8rem;">
+                <img id="authUserPhoto" src="" style="width: 32px; height: 32px; border-radius: 50%;">
+                <div style="display: flex; flex-direction: column;">
+                  <span id="authUserName" style="font-weight: 500; font-size: 0.85rem;"></span>
+                  <span id="authUserEmail" style="font-size: 0.7rem; color: var(--text-soft);"></span>
+                </div>
+              </div>
+              <button class="btn btn-s" onclick="signOut()">Cerrar Sesión</button>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--border-light); padding-top: 1rem; margin-top: 0.5rem;">
+            <span class="label-soft">Notificaciones Push</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+              <span style="font-size: 0.8rem; color: var(--text-soft)">Recibir alertas de recordatorios
+                (Nativo/Web)</span>
+              <button class="btn btn-s" id="btnPush" onclick="requestPushPermission()">Activar</button>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--border-light); padding-top: 1rem; margin-top: 0.5rem;">
+            <span class="label-soft">Estado del Sistema</span>
+            <div id="syncIndicator"
+              style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-soft)">
+              <div class="sync-dot wait"></div>
+              <span id="syncText">Cargando...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -3075,6 +3176,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
 
     <script>
       // ============================================================
@@ -3095,50 +3197,62 @@
       let unsubscribers = [];
 
       // ===== PAIRING CODE SYSTEM =====
-      function getPairCode() { return localStorage.getItem('wp_pair_code') || ''; }
-      function setPairCode(code) { localStorage.setItem('wp_pair_code', code.trim().toLowerCase()); }
-
-      function showPairModal() {
-        const code = getPairCode();
-        document.getElementById('pairInput').value = code;
-        const cur = document.getElementById('pairCurrent');
-        cur.innerHTML = code ? 'Código actual: <code>' + code + '</code>' : 'Sin código — los datos solo se guardan localmente';
-        document.getElementById('pairModal').classList.add('show');
-        setTimeout(() => document.getElementById('pairInput').focus(), 100);
-      }
-      function closePairModal() { document.getElementById('pairModal').classList.remove('show'); }
-
-      function savePairCode() {
-        const raw = document.getElementById('pairInput').value.trim();
-        if (!raw || raw.length < 3) { alert('Escribe un código de al menos 3 caracteres.'); return; }
-        const oldCode = getPairCode();
-        setPairCode(raw);
-        closePairModal();
-        // Restart sync with new code
-        unsubscribers.forEach(u => u());
-        unsubscribers = [];
-        userId = getPairCode();
-        syncStatus('wait', 'Conectando...');
-        startSync();
-      }
-
       function initFirebase() {
         try {
-          firebase.initializeApp(FIREBASE_CONFIG);
-          db = firebase.firestore();
-          db.enablePersistence({ synchronizeTabs: true }).catch(() => { });
-          // Use pairing code as userId instead of anonymous auth
-          const pairCode = getPairCode();
-          if (!pairCode) {
-            syncStatus('offline', 'Toca <i class="ph-fill ph-link ph-icon"></i> para sincronizar dispositivos');
-            return;
+          if (!firebase.apps.length) {
+            firebase.initializeApp(FIREBASE_CONFIG);
           }
-          userId = pairCode;
-          syncStatus('synced', 'Sincronizado ✓ (' + pairCode + ')');
-          startSync();
+          db = firebase.firestore();
+
+          firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+              document.getElementById('authLoggedOut').style.display = 'none';
+              document.getElementById('authLoggedIn').style.display = 'flex';
+              document.getElementById('authUserName').textContent = user.displayName || 'Usuario';
+              document.getElementById('authUserEmail').textContent = user.email || '';
+              if (user.photoURL) document.getElementById('authUserPhoto').src = user.photoURL;
+
+              const cfg = getPlannerConfig();
+              if (!cfg.userName && user.displayName) {
+                cfg.userName = user.displayName.split(' ')[0];
+                savePlannerConfig(cfg);
+                loadProfile();
+              }
+
+              userId = user.uid;
+              syncStatus('wait', 'Conectando nube...');
+
+              unsubscribers.forEach(u => u());
+              unsubscribers = [];
+              startSync();
+            } else {
+              document.getElementById('authLoggedOut').style.display = 'block';
+              document.getElementById('authLoggedIn').style.display = 'none';
+
+              unsubscribers.forEach(u => u());
+              unsubscribers = [];
+              userId = null;
+              syncStatus('offline', 'Modo local (Sin sesión)');
+            }
+          });
+
         } catch (e) {
-          console.warn('Firebase init error', e);
-          syncStatus('offline', 'Error de conexión — modo local');
+          console.error("Firebase init failed:", e);
+          syncStatus('offline', 'Error de conexión');
+        }
+      }
+
+      function signInWithGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider).catch(error => {
+          console.error("Auth Error", error);
+          alert("Error al iniciar sesión: " + error.message);
+        });
+      }
+
+      function signOut() {
+        if (confirm('¿Seguro que quieres cerrar sesión? Solo verás tus datos locales.')) {
+          firebase.auth().signOut();
         }
       }
 
@@ -3267,6 +3381,9 @@
           items[2].classList.add('active');
           ct.classList.add('cal-full');
           renderCal();
+        } else if (n === 'settings') {
+          document.getElementById('settingsView').classList.add('active');
+          items[3].classList.add('active'); // Index 3 is 'Ajustes'
         } else if (n === 'profile') {
           document.getElementById('profileView').classList.add('active');
           items[4].classList.add('active'); // Index of the Profile button in sidebar-nav/footer (0-based)
@@ -3339,7 +3456,7 @@
           g.parentElement.insertBefore(hdrWrap, g);
         }
         let tb = document.getElementById('daysToolbar');
-        tb.innerHTML = `<div class="width-control"><span class="days-toolbar-label">Ancho</span><input type="range" min="150" max="350" value="${cardWidth}" id="cardWidthSlider" /><span class="width-val" id="cardWidthVal">${cardWidth}</span></div><div class="width-control" style="margin-left: 1rem;"><span class="days-toolbar-label">Alto</span><input type="range" min="150" max="600" value="${cardHeight}" id="cardHeightSlider" /><span class="width-val" id="cardHeightVal">${cardHeight}</span></div>`;
+        tb.innerHTML = `<div class="width-control"><span class="days-toolbar-label">Ancho</span><input type="range" min="150" max="350" value="${cardWidth}" id="cardWidthSlider" /><span class="width-val" id="cardWidthVal">${cardWidth}</span></div><div class="width-control"><span class="days-toolbar-label">Alto</span><input type="range" min="150" max="600" value="${cardHeight}" id="cardHeightSlider" /><span class="width-val" id="cardHeightVal">${cardHeight}</span></div>`;
         document.getElementById('cardWidthSlider').addEventListener('input', function () {
           const w = parseInt(this.value);
           document.getElementById('cardWidthVal').textContent = w;
@@ -3410,16 +3527,16 @@
         const hn = task.notes && task.notes.trim().length > 0;
         div.innerHTML = `<div class="t-main"><input type="checkbox" class="t-chk" ${task.done ? 'checked' : ''}/><input type="text" class="t-txt${task.done ? ' done' : ''}" value="${esc(task.text)}" placeholder="Nueva tarea..."/><div class="t-acts"><button class="t-btn${hn ? ' active' : ''}" title="Notas"><i class="ph-fill ph-note-pencil ph-icon"></i></button><button class="t-btn del" title="Eliminar">×</button></div></div><div class="t-notes${hn ? ' vis' : ''}"><textarea class="ta ta-sm" placeholder="Notas...">${esc(task.notes || '')}</textarea></div>`;
         const cb = div.querySelector('.t-chk'), tx = div.querySelector('.t-txt'), dl = div.querySelector('.del'), tg = div.querySelectorAll('.t-btn')[0], na = div.querySelector('.t-notes'), ni = div.querySelector('.t-notes .ta');
-        cb.addEventListener('change', () => { wd.days[dk][idx].done = cb.checked; tx.classList.toggle('done', cb.checked); sw(wd); updProg(); });
-        tx.addEventListener('input', () => { wd.days[dk][idx].text = tx.value; sw(wd); });
-        dl.addEventListener('click', () => { wd.days[dk].splice(idx, 1); sw(wd); renderPlan(); });
+        cb.addEventListener('change', () => { wd.days[dk][idx].done = cb.checked; tx.classList.toggle('done', cb.checked); sw(wd); updProg(); renderRightSidebar(); });
+        tx.addEventListener('input', () => { wd.days[dk][idx].text = tx.value; sw(wd); renderRightSidebar(); });
+        dl.addEventListener('click', () => { wd.days[dk].splice(idx, 1); sw(wd); renderPlan(); renderRightSidebar(); });
         tg.addEventListener('click', () => { na.classList.toggle('vis'); tg.classList.toggle('active', na.classList.contains('vis')); if (na.classList.contains('vis')) ni.focus(); });
         ni.addEventListener('input', () => { wd.days[dk][idx].notes = ni.value; tg.classList.toggle('active', ni.value.trim().length > 0); sw(wd); });
         ct.appendChild(div);
       }
 
-      function addTask(dk) { if (!wd.days) wd.days = {}; if (!wd.days[dk]) wd.days[dk] = []; wd.days[dk].push({ text: '', done: false, notes: '' }); sw(wd); renderPlan(); const cols = document.querySelectorAll('.day-col'); const i = DAYS.findIndex(d => d.key === dk); setTimeout(() => { const ins = cols[i].querySelectorAll('.t-txt'); if (ins.length) ins[ins.length - 1].focus(); }, 50); }
-      function updProg() { const { total, done, pct } = stats(wd); const c = 2 * Math.PI * 19; document.getElementById('pPct').textContent = pct + '%'; document.getElementById('pCircle').style.strokeDashoffset = c - (c * pct / 100); document.getElementById('pBar').style.width = pct + '%'; if (total > 0 && done === total) { document.getElementById('pStats').textContent = 'Semana completada.'; } else { document.getElementById('pStats').textContent = `${done} / ${total} completadas`; } }
+      function addTask(dk) { if (!wd.days) wd.days = {}; if (!wd.days[dk]) wd.days[dk] = []; wd.days[dk].push({ text: '', done: false, notes: '' }); sw(wd); renderPlan(); renderRightSidebar(); const cols = document.querySelectorAll('.day-col'); const i = DAYS.findIndex(d => d.key === dk); setTimeout(() => { const ins = cols[i].querySelectorAll('.t-txt'); if (ins.length) ins[ins.length - 1].focus(); }, 50); }
+      function updProg() { const { total, done, pct } = stats(wd); const c = 2 * Math.PI * 19; document.getElementById('pPct').textContent = pct + '%'; document.getElementById('pCircle').style.strokeDashoffset = c - (c * pct / 100); document.getElementById('pBar').style.width = pct + '%'; if (total > 0 && done === total) { document.getElementById('pStats').textContent = 'Semana completada.'; } else { document.getElementById('pStats').textContent = `${done} / ${total} completadas`; } renderRightSidebar(); }
 
       function archiveWeek() { const st = stats(wd); if (st.total === 0 && !wd.objective) { alert('Agrega tareas o un objetivo primero.'); return; } if (!confirm('¿Archivar esta semana e iniciar una nueva?')) return; const { s, e } = weekRange(); const entry = { id: Date.now(), weekStart: s.toISOString(), weekEnd: e.toISOString(), weekNumber: weekNum(s), month: s.getMonth() + 1, year: s.getFullYear(), ...JSON.parse(JSON.stringify(wd)), stats: st }; const a = ga(); a.push(entry); sa(a); wd = fw(); sw(wd); renderPlan(); alert('✅ Semana archivada.'); }
       function resetWeek() { if (!confirm('¿Borrar todo sin archivar?')) return; wd = fw(); sw(wd); renderPlan(); }
@@ -3898,7 +4015,7 @@
         } else {
           evts.push({ id: String(Date.now()), date, name, time, timeEnd, notes, cat });
         }
-        se(evts); closeModal(); renderWeekCal();
+        se(evts); closeModal(); renderWeekCal(); renderRightSidebar();
       }
       function editEvt(id) { const evts = ge(); const ev = evts.find(e => e.id === id); if (ev) openModal(ev.date, ev); }
       function delEvt() { if (!confirm('¿Eliminar?')) return; let evts = ge(); evts = evts.filter(e => e.id !== editEvtId); se(evts); closeModal(); renderWeekCal(); renderRightSidebar(); }
@@ -3923,10 +4040,11 @@
         DAYS.forEach((day, di) => {
           const dayDate = new Date(weekStart);
           dayDate.setDate(weekStart.getDate() + di);
-          if (dayDate.getTime() === today.getTime()) {
+          const dayStr = dayDate.getFullYear() + '-' + String(dayDate.getMonth() + 1).padStart(2, '0') + '-' + String(dayDate.getDate()).padStart(2, '0');
+          if (dayStr === todayStr) {
             const tasks = (wd.days && wd.days[day.key]) || [];
             tasks.forEach(t => {
-              if (!t.d) {
+              if (!t.done) {
                 items.push({ type: 'task', title: t.text, time: 'Hoy', sortVal: 0 });
               }
             });
@@ -4000,11 +4118,6 @@
       function loadProfile() {
         const cfg = getPlannerConfig();
         document.getElementById('profileName').value = cfg.userName || '';
-        if (!cfg.syncCode) {
-          cfg.syncCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-          savePlannerConfig(cfg);
-        }
-        document.getElementById('profileSyncCode').value = cfg.syncCode;
 
         const sidebarName = cfg.userName ? `Hola ${cfg.userName}` : 'Perfil';
         const sidebarNameEl = document.getElementById('sidebarProfileName');
@@ -4042,9 +4155,62 @@
         alert('Perfil guardado correctamente.');
       }
 
-      // Register Service Worker
+      function signOut() {
+        if (confirm('¿Seguro que quieres cerrar sesión? Solo verás tus datos locales.')) {
+          firebase.auth().signOut();
+        }
+      }
+
+      function requestPushPermission() {
+        if (!firebase.messaging || !firebase.messaging.isSupported()) {
+          alert('Tu navegador no soporta notificaciones push en este momento.');
+          return;
+        }
+
+        const messaging = firebase.messaging();
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            document.getElementById('btnPush').textContent = 'Conectando...';
+
+            // Get registration token. VAPID provided by user.
+            messaging.getToken({ vapidKey: 'BIFu659VfhmxvePILFLTXKW8cRpWAXqDNMgo-hbm1HWIB-DjmyYoFzcafkTXGq6Xr9F3zU3THl8Fmb_sJM72qdY' })
+              .then((currentToken) => {
+                if (currentToken) {
+                  // Save token to Firestore alongside user profile
+                  if (userId) {
+                    db.collection('users').doc(userId).set({ pushToken: currentToken }, { merge: true });
+                    document.getElementById('btnPush').textContent = 'Activadas ✓';
+                    document.getElementById('btnPush').disabled = true;
+                    document.getElementById('btnPush').style.opacity = '0.5';
+                    alert('¡Notificaciones activadas exitosamente en este dispositivo!');
+                  } else {
+                    alert('Por favor inicia sesión con Google primero para activar las notificaciones.');
+                    document.getElementById('btnPush').textContent = 'Activar';
+                  }
+                } else {
+                  console.log('No token available. Request permission to generate one.');
+                  alert('No se pudo generar el token de validación.');
+                  document.getElementById('btnPush').textContent = 'Activar';
+                }
+              }).catch((err) => {
+                console.log('Error obtaining token. ', err);
+                alert('Ocurrió un error al vincular las notificaciones con Firebase.');
+                document.getElementById('btnPush').textContent = 'Activar';
+              });
+          } else {
+            alert('Permiso de notificaciones denegado desde el navegador.');
+          }
+        });
+      }
+
+      // Register Service Worker for PWA and FCM
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW fail', e));
+        navigator.serviceWorker.register('sw.js')
+          .then(registration => {
+            // Pass registration to firebase messaging if needed
+            // firebase.messaging().useServiceWorker(registration);
+          })
+          .catch(e => console.warn('SW registration failed', e));
       }
 
       loadProfile();
@@ -4071,9 +4237,6 @@
     </div>
   </aside>
 
-  <button class="rs-open-btn" id="rsOpenBtn" onclick="toggleRightSidebar()" title="Mostrar recordatorios">
-    <i class="ph-fill ph-bell ph-icon"></i>
-  </button>
 
   <script>
     function toggleRightSidebar() {
@@ -4109,6 +4272,11 @@
         document.getElementById('rightSidebar').classList.add('collapsed');
         document.getElementById('rsOpenBtn').classList.add('show');
         document.querySelector('.main-content').classList.add('rs-collapsed');
+      }
+
+      // Safety render after DOM is fully parsed
+      if (typeof renderRightSidebar === 'function') {
+        renderRightSidebar();
       }
     });
   </script>
