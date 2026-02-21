@@ -2700,6 +2700,8 @@
       align-items: center;
       justify-content: space-between;
       padding: 1.2rem 1.5rem;
+      padding-top: calc(1.2rem + env(safe-area-inset-top));
+      /* Safe area for iOS PWA Notch */
       border-bottom: 1px solid var(--border);
       min-height: 60px;
     }
@@ -4205,17 +4207,15 @@
         }
       }
 
-      // Global SW registration
-      let swReg = null;
+      // Global SW registration tracking removed as we now use navigator.serviceWorker.ready
 
       function requestPushPermission() {
-        if (!firebase.messaging || !firebase.messaging.isSupported()) {
-          alert('Tu navegador no soporta notificaciones push en este momento.');
+        if (!('serviceWorker' in navigator)) {
+          alert('Tu navegador no soporta Service Workers.');
           return;
         }
-
-        if (!swReg) {
-          alert('El Service Worker aún se está cargando. Intenta de nuevo en un segundo.');
+        if (!firebase.messaging || !firebase.messaging.isSupported()) {
+          alert('Tu navegador no soporta notificaciones push en este momento.');
           return;
         }
 
@@ -4224,34 +4224,40 @@
           if (permission === 'granted') {
             document.getElementById('btnPush').textContent = 'Conectando...';
 
-            // Get registration token explicitly using our registered SW
-            messaging.getToken({
-              vapidKey: 'BIFu659VfhmxvePILFLTXKW8cRpWAXqDNMgo-hbm1HWIB-DjmyYoFzcafkTXGq6Xr9F3zU3THl8Fmb_sJM72qdY',
-              serviceWorkerRegistration: swReg
-            })
-              .then((currentToken) => {
-                if (currentToken) {
-                  // Save token to Firestore alongside user profile
-                  if (userId) {
-                    db.collection('users').doc(userId).set({ pushToken: currentToken }, { merge: true });
-                    document.getElementById('btnPush').textContent = 'Activadas ✓';
-                    document.getElementById('btnPush').disabled = true;
-                    document.getElementById('btnPush').style.opacity = '0.5';
-                    alert('¡Notificaciones activadas exitosamente en este dispositivo!');
+            // Wait for the Service Worker to be fully ready before getting the token
+            navigator.serviceWorker.ready.then((swReg) => {
+              messaging.getToken({
+                vapidKey: 'BIFu659VfhmxvePILFLTXKW8cRpWAXqDNMgo-hbm1HWIB-DjmyYoFzcafkTXGq6Xr9F3zU3THl8Fmb_sJM72qdY',
+                serviceWorkerRegistration: swReg
+              })
+                .then((currentToken) => {
+                  if (currentToken) {
+                    // Save token to Firestore alongside user profile
+                    if (userId) {
+                      db.collection('users').doc(userId).set({ pushToken: currentToken }, { merge: true });
+                      document.getElementById('btnPush').textContent = 'Activadas ✓';
+                      document.getElementById('btnPush').disabled = true;
+                      document.getElementById('btnPush').style.opacity = '0.5';
+                      alert('¡Notificaciones activadas exitosamente en este dispositivo!');
+                    } else {
+                      alert('Por favor inicia sesión con Google primero para activar las notificaciones.');
+                      document.getElementById('btnPush').textContent = 'Activar';
+                    }
                   } else {
-                    alert('Por favor inicia sesión con Google primero para activar las notificaciones.');
+                    console.log('No token available. Request permission to generate one.');
+                    alert('No se pudo generar el token de validación.');
                     document.getElementById('btnPush').textContent = 'Activar';
                   }
-                } else {
-                  console.log('No token available. Request permission to generate one.');
-                  alert('No se pudo generar el token de validación.');
+                }).catch((err) => {
+                  console.error('Error obtaining token. ', err);
+                  alert('Ocurrió un error al vincular las notificaciones con Firebase.');
                   document.getElementById('btnPush').textContent = 'Activar';
-                }
-              }).catch((err) => {
-                console.error('Error obtaining token. ', err);
-                alert('Ocurrió un error al vincular las notificaciones con Firebase.');
-                document.getElementById('btnPush').textContent = 'Activar';
-              });
+                });
+            }).catch(err => {
+              console.error('Service Worker not ready:', err);
+              alert('El sistema en segundo plano falló al cargar.');
+              document.getElementById('btnPush').textContent = 'Activar';
+            });
           } else {
             alert('Permiso de notificaciones denegado desde el navegador.');
           }
@@ -4262,7 +4268,6 @@
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('firebase-messaging-sw.js')
           .then(registration => {
-            swReg = registration;
             console.log('SW Registration for FCM successful:', registration.scope);
           })
           .catch(e => console.warn('SW registration failed:', e));
@@ -4274,6 +4279,9 @@
     </script>
   </div> <!-- /main-content -->
 
+  <!-- Mobile Overlay -->
+  <div id="rsOverlay" class="rs-overlay" onclick="toggleRightSidebar()"></div>
+
   <!-- Right Sidebar -->
   <aside class="right-sidebar" id="rightSidebar">
     <div class="rs-header">
@@ -4284,7 +4292,7 @@
         </svg>
       </button>
     </div>
-    <div class="rs-content">
+    <div class="rs-content" id="rsContent">
       <div
         style="padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; text-align: center; font-style: italic;">
         No hay recordatorios próximos.
@@ -4292,12 +4300,21 @@
     </div>
   </aside>
 
+  <!-- Navigation Toggle -->
+  <button class="nav-toggle" id="rsOpenBtn" onclick="toggleRightSidebar()" title="Mostrar Panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </button>
 
   <script>
     function toggleRightSidebar() {
       const rs = document.getElementById('rightSidebar');
       const btn = document.getElementById('rsOpenBtn');
       const main = document.querySelector('.main-content');
+      const overlay = document.getElementById('rsOverlay');
 
       if (window.innerWidth >= 1200) {
         if (rs.classList.contains('collapsed')) {
@@ -4314,11 +4331,43 @@
       } else {
         if (rs.classList.contains('show-mobile')) {
           rs.classList.remove('show-mobile');
+          if (overlay) overlay.classList.remove('show');
+          // Wait for transition before hiding display
+          setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 300);
         } else {
           rs.classList.add('show-mobile');
+          if (overlay) {
+            overlay.style.display = 'block';
+            setTimeout(() => overlay.classList.add('show'), 10);
+          }
         }
       }
     }
+
+    // Touch Swipe Logic for Right Sidebar
+    let rsTouchStartX = 0;
+    let rsTouchStartY = 0;
+
+    document.getElementById('rightSidebar').addEventListener('touchstart', e => {
+      rsTouchStartX = e.changedTouches[0].screenX;
+      rsTouchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    document.getElementById('rightSidebar').addEventListener('touchend', e => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const touchEndY = e.changedTouches[0].screenY;
+
+      const deltaX = touchEndX - rsTouchStartX;
+      const deltaY = Math.abs(touchEndY - rsTouchStartY);
+
+      // Swipe Right detected (horizontal swipe > 50px, and mostly horizontal)
+      if (deltaX > 50 && deltaY < 50) {
+        const rs = document.getElementById('rightSidebar');
+        if (rs.classList.contains('show-mobile')) {
+          toggleRightSidebar();
+        }
+      }
+    }, { passive: true });
 
     // Init state for Right Sidebar
     window.addEventListener('DOMContentLoaded', () => {
