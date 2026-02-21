@@ -1,3 +1,28 @@
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: "AIzaSyD8RQ6EOpNSM8irWqo9yR9L0eyGbY_oND0",
+  authDomain: "schedule-baaac.firebaseapp.com",
+  projectId: "schedule-baaac",
+  storageBucket: "schedule-baaac.firebasestorage.app",
+  messagingSenderId: "1051793384064",
+  appId: "1:1051793384064:web:84b9d00b570bd844363c65"
+});
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  const notificationTitle = payload.notification.title || 'Planora Notificación';
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: payload.data
+  };
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
 const CACHE_NAME = 'planificador-v2';
 const ASSETS = [
   '/',
