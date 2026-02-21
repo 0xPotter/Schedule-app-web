@@ -468,7 +468,7 @@
     /* ===== CARDS ===== */
     .card {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 0.2px solid rgba(255, 255, 255, 0.1);
       border-radius: 16px;
       padding: 1.25rem 1.5rem;
       margin-bottom: 1rem;
@@ -669,7 +669,7 @@
       align-items: center;
       gap: 1rem;
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 0.2px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 1rem 1.25rem;
       margin-bottom: 1.25rem;
@@ -793,7 +793,7 @@
 
     .day-col {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 0.2px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       min-height: 200px;
       display: flex;
@@ -802,10 +802,6 @@
       scroll-snap-align: start;
       flex: 0 0 calc((100% - 3.6rem) / 5);
       min-width: 170px;
-    }
-
-    .day-col:hover {
-      border-color: var(--border-light);
     }
 
     .day-col.today {
