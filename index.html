@@ -2685,6 +2685,8 @@
     @media (max-width: 1199px) {
       .right-sidebar {
         transform: translateX(100%);
+        padding-bottom: 80px;
+        /* Leave room for mobile navbar */
       }
 
       .right-sidebar.show-mobile {
@@ -2735,6 +2737,8 @@
       flex: 1;
       overflow-y: auto;
       padding: 1rem 1.5rem;
+      padding-bottom: 100px;
+      /* Ensures last item is reachable */
     }
 
     .rs-open-btn {
@@ -2957,10 +2961,26 @@
 
           <div style="border-top: 1px solid var(--border-light); padding-top: 1rem; margin-top: 0.5rem;">
             <span class="label-soft">Notificaciones Push</span>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
-              <span style="font-size: 0.8rem; color: var(--text-soft)">Recibir alertas de recordatorios
-                (Nativo/Web)</span>
+            <div
+              style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; margin-bottom: 0.8rem;">
+              <span style="font-size: 0.8rem; color: var(--text-soft)">Recibir alertas en este dispositivo</span>
               <button class="btn btn-s" id="btnPush" onclick="requestPushPermission()">Activar</button>
+            </div>
+
+            <div id="pushPreferences"
+              style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; padding-left: 0.5rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="prefPushTasks" class="task-checkbox" onchange="savePushPreferences()">
+                Tareas pendientes
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="prefPushEvents" class="task-checkbox" onchange="savePushPreferences()">
+                Eventos del calendario
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="prefPushJournal" class="task-checkbox" onchange="savePushPreferences()">
+                Recordatorio de Reflexión
+              </label>
             </div>
           </div>
 
@@ -3167,9 +3187,9 @@
       </div>
     </div>
 
-    <div class="sync-bar" id="syncBar">
+    <div class="sync-bar" id="syncBar" style="display: none;">
       <span class="sync-dot wait" id="syncDot"></span>
-      <span id="syncText">Conectando...</span>
+      <span id="syncText"></span>
     </div>
 
     <!-- Firebase SDK -->
@@ -3220,7 +3240,7 @@
               }
 
               userId = user.uid;
-              syncStatus('wait', 'Conectando nube...');
+              syncStatus('wait', ''); // Do not show text by default
 
               unsubscribers.forEach(u => u());
               unsubscribers = [];
@@ -4119,6 +4139,11 @@
         const cfg = getPlannerConfig();
         document.getElementById('profileName').value = cfg.userName || '';
 
+        // Load push preferences mapping
+        document.getElementById('prefPushTasks').checked = cfg.pushTasks !== false; // Default true
+        document.getElementById('prefPushEvents').checked = cfg.pushEvents !== false; // Default true
+        document.getElementById('prefPushJournal').checked = cfg.pushJournal !== false; // Default true
+
         const sidebarName = cfg.userName ? `Hola ${cfg.userName}` : 'Perfil';
         const sidebarNameEl = document.getElementById('sidebarProfileName');
         if (sidebarNameEl) sidebarNameEl.textContent = sidebarName;
@@ -4155,15 +4180,42 @@
         alert('Perfil guardado correctamente.');
       }
 
+      function savePushPreferences() {
+        const cfg = getPlannerConfig();
+        cfg.pushTasks = document.getElementById('prefPushTasks').checked;
+        cfg.pushEvents = document.getElementById('prefPushEvents').checked;
+        cfg.pushJournal = document.getElementById('prefPushJournal').checked;
+        savePlannerConfig(cfg);
+
+        // If user is logged in, sync preferences to the cloud so the backend respects them
+        if (userId && db) {
+          db.collection('users').doc(userId).set({
+            pushPreferences: {
+              tasks: cfg.pushTasks,
+              events: cfg.pushEvents,
+              journal: cfg.pushJournal
+            }
+          }, { merge: true });
+        }
+      }
+
       function signOut() {
         if (confirm('¿Seguro que quieres cerrar sesión? Solo verás tus datos locales.')) {
           firebase.auth().signOut();
         }
       }
 
+      // Global SW registration
+      let swReg = null;
+
       function requestPushPermission() {
         if (!firebase.messaging || !firebase.messaging.isSupported()) {
           alert('Tu navegador no soporta notificaciones push en este momento.');
+          return;
+        }
+
+        if (!swReg) {
+          alert('El Service Worker aún se está cargando. Intenta de nuevo en un segundo.');
           return;
         }
 
@@ -4172,8 +4224,11 @@
           if (permission === 'granted') {
             document.getElementById('btnPush').textContent = 'Conectando...';
 
-            // Get registration token. VAPID provided by user.
-            messaging.getToken({ vapidKey: 'BIFu659VfhmxvePILFLTXKW8cRpWAXqDNMgo-hbm1HWIB-DjmyYoFzcafkTXGq6Xr9F3zU3THl8Fmb_sJM72qdY' })
+            // Get registration token explicitly using our registered SW
+            messaging.getToken({
+              vapidKey: 'BIFu659VfhmxvePILFLTXKW8cRpWAXqDNMgo-hbm1HWIB-DjmyYoFzcafkTXGq6Xr9F3zU3THl8Fmb_sJM72qdY',
+              serviceWorkerRegistration: swReg
+            })
               .then((currentToken) => {
                 if (currentToken) {
                   // Save token to Firestore alongside user profile
@@ -4193,7 +4248,7 @@
                   document.getElementById('btnPush').textContent = 'Activar';
                 }
               }).catch((err) => {
-                console.log('Error obtaining token. ', err);
+                console.error('Error obtaining token. ', err);
                 alert('Ocurrió un error al vincular las notificaciones con Firebase.');
                 document.getElementById('btnPush').textContent = 'Activar';
               });
@@ -4203,14 +4258,14 @@
         });
       }
 
-      // Register Service Worker for PWA and FCM
+      // Register custom SW safely so FCM doesn't try to auto-fetch its default
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
+        navigator.serviceWorker.register('firebase-messaging-sw.js')
           .then(registration => {
-            // Pass registration to firebase messaging if needed
-            // firebase.messaging().useServiceWorker(registration);
+            swReg = registration;
+            console.log('SW Registration for FCM successful:', registration.scope);
           })
-          .catch(e => console.warn('SW registration failed', e));
+          .catch(e => console.warn('SW registration failed:', e));
       }
 
       loadProfile();
