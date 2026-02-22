@@ -4280,6 +4280,31 @@
           .catch(e => console.warn('SW registration failed:', e));
       }
 
+      // Handle foreground messages
+      if (firebase.messaging.isSupported()) {
+        const messaging = firebase.messaging();
+        messaging.onMessage((payload) => {
+          console.log("Foreground message received:", payload);
+
+          // In a real app, you might want to show a custom toast/snackbar here.
+          // For now, we'll try to trigger a system notification if permission is granted.
+          if (Notification.permission === 'granted') {
+            const title = payload.notification?.title || 'Planora';
+            const options = {
+              body: payload.notification?.body || 'Nueva notificación',
+              icon: '/icon-192.png'
+            };
+            try {
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification(title, options);
+              });
+            } catch (e) {
+              console.log("Could not display foreground notification", e);
+            }
+          }
+        });
+      }
+
       loadProfile();
       renderPlan();
       initFirebase();
