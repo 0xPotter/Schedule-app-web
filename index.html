@@ -4241,7 +4241,13 @@
                 if (currentToken) {
                   // Save token to Firestore alongside user profile
                   if (userId) {
-                    db.collection('users').doc(userId).set({ pushToken: currentToken }, { merge: true });
+                    const user = firebase.auth().currentUser;
+                    const userData = { pushToken: currentToken };
+                    if (user) {
+                      if (user.email) userData.email = user.email;
+                      if (user.displayName) userData.name = user.displayName;
+                    }
+                    db.collection('users').doc(userId).set(userData, { merge: true });
                     document.getElementById('btnPush').textContent = 'Activadas ✓';
                     document.getElementById('btnPush').disabled = true;
                     document.getElementById('btnPush').style.opacity = '0.5';
