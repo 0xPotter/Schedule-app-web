@@ -4211,11 +4211,11 @@
 
       function requestPushPermission() {
         if (!('serviceWorker' in navigator)) {
-          alert('Tu navegador no soporta Service Workers.');
+          alert('Tu navegador no soporta Service Workers (requerido para pedir notificaciones).');
           return;
         }
         if (!firebase.messaging || !firebase.messaging.isSupported()) {
-          alert('Tu navegador no soporta notificaciones push en este momento.');
+          alert('Tu navegador o dispositivo actual no soporta notificaciones push Web (iOS requiere versión 16.4+ y que la app esté instalada en la pantalla de inicio).');
           return;
         }
 
@@ -4224,49 +4224,56 @@
           if (permission === 'granted') {
             document.getElementById('btnPush').textContent = 'Conectando...';
 
-            // Wait for the Service Worker to be fully ready before getting the token
-            navigator.serviceWorker.ready.then((swReg) => {
-              messaging.getToken({
-                vapidKey: 'BIFu659VfhmxvePILFLTXKW8cRpWAXqDNMgo-hbm1HWIB-DjmyYoFzcafkTXGq6Xr9F3zU3THl8Fmb_sJM72qdY',
-                serviceWorkerRegistration: swReg
+            // Explicitly register the service worker for iOS instead of relying on .ready
+            navigator.serviceWorker.register('sw.js')
+              .then((swReg) => {
+                if (!swReg) {
+                  throw new Error("El registro del Service Worker (swReg) regresó nulo.");
+                }
+                console.log("Service Worker registrado para push:", swReg);
+
+                return messaging.getToken({
+                  vapidKey: 'BIFu659VfhmxvePILFLTXKW8cRpWAXqDNMgo-hbm1HWIB-DjmyYoFzcafkTXGq6Xr9F3zU3THl8Fmb_sJM72qdY',
+                  serviceWorkerRegistration: swReg
+                });
               })
-                .then((currentToken) => {
-                  if (currentToken) {
-                    // Save token to Firestore alongside user profile
-                    if (userId) {
-                      db.collection('users').doc(userId).set({ pushToken: currentToken }, { merge: true });
-                      document.getElementById('btnPush').textContent = 'Activadas ✓';
-                      document.getElementById('btnPush').disabled = true;
-                      document.getElementById('btnPush').style.opacity = '0.5';
-                      alert('¡Notificaciones activadas exitosamente en este dispositivo!');
-                    } else {
-                      alert('Por favor inicia sesión con Google primero para activar las notificaciones.');
-                      document.getElementById('btnPush').textContent = 'Activar';
-                    }
+              .then((currentToken) => {
+                if (currentToken) {
+                  // Save token to Firestore alongside user profile
+                  if (userId) {
+                    db.collection('users').doc(userId).set({ pushToken: currentToken }, { merge: true });
+                    document.getElementById('btnPush').textContent = 'Activadas ✓';
+                    document.getElementById('btnPush').disabled = true;
+                    document.getElementById('btnPush').style.opacity = '0.5';
+                    alert('¡Notificaciones activadas exitosamente en este dispositivo!');
                   } else {
-                    console.log('No token available. Request permission to generate one.');
-                    alert('No se pudo generar el token de validación.');
+                    alert('Por favor inicia sesión con Google primero para activar las notificaciones.');
                     document.getElementById('btnPush').textContent = 'Activar';
                   }
-                }).catch((err) => {
-                  console.error('Error obtaining token. ', err);
-                  alert('Ocurrió un error al vincular las notificaciones con Firebase.');
+                } else {
+                  console.log('No token available. Request permission to generate one.');
+                  alert('Fallo token: La promesa se resolvió pero el token estaba vacío.');
                   document.getElementById('btnPush').textContent = 'Activar';
-                });
-            }).catch(err => {
-              console.error('Service Worker not ready:', err);
-              alert('El sistema en segundo plano falló al cargar.');
-              document.getElementById('btnPush').textContent = 'Activar';
-            });
+                }
+              }).catch((err) => {
+                console.error('Error obtaining token:', err);
+                const errMsg = err.message ? err.message : String(err);
+                alert('Ocurrió un error en la capa de Firebase/WebKit: ' + errMsg);
+                document.getElementById('btnPush').textContent = 'Activar';
+              });
           } else {
-            alert('Permiso de notificaciones denegado desde el navegador.');
+            alert('Permiso de notificaciones denegado desde el navegador. Por favor, permítelo en los ajustes.');
+            document.getElementById('btnPush').textContent = 'Activar';
           }
+        }).catch(err => {
+          console.error("Error al solicitar permisos:", err);
+          alert('Error inesperado al solicitar los permisos de notificación.');
         });
       }
 
       // Register custom SW safely so FCM doesn't try to auto-fetch its default
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('firebase-messaging-sw.js')
+        navigator.serviceWorker.register('sw.js')
           .then(registration => {
             console.log('SW Registration for FCM successful:', registration.scope);
           })
